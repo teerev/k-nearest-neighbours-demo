@@ -5,11 +5,8 @@ from matplotlib import style
 from matplotlib.colors import ListedColormap
 from sklearn import model_selection, neighbors
 from matplotlib.ticker import FormatStrFormatter
-import geocoder
-import time
-style.use('ggplot')
 
-# to suppress a warning message for lines c1['class'] = 1 and c0['class'] = 0 below
+style.use('ggplot')
 pd.options.mode.chained_assignment = None
 
 # User inputs
@@ -75,16 +72,16 @@ def plot_scatter_points(ax, x_tp, x_fn, x_tn, x_fp, dataset_label):
     """Plots true positives, true negatives, false positives and false negatives with distinct 
     scatter plot markers"""
     
-    ax.scatter(x_tp[:, 1], x_tp[:, 0], s=50, marker='.', c='red',
+    ax.scatter(x_tp[:, 0], x_tp[:, 1], s=50, marker='.', c='red',
                label='true positives ({0} set)'.format(dataset_label))
 
-    ax.scatter(x_fn[:, 1], x_fn[:, 0], s=50, marker='x', c='red',
+    ax.scatter(x_fn[:, 0], x_fn[:, 1], s=50, marker='x', c='red',
                label='false negatives ({0} set)'.format(dataset_label))
 
-    ax.scatter(x_tn[:, 1], x_tn[:, 0], s=50, marker='.', c='blue',
+    ax.scatter(x_tn[:, 0], x_tn[:, 1], s=50, marker='.', c='blue',
                label='true negatives ({0} set)'.format(dataset_label))
 
-    ax.scatter(x_fp[:, 1], x_fp[:, 0], s=50, marker='x', c='blue',
+    ax.scatter(x_fp[:, 0], x_fp[:, 1], s=50, marker='x', c='blue',
                label='false positives ({0} set)'.format(dataset_label))
 
 
@@ -100,7 +97,7 @@ c0['class'] = 0
 df = pd.concat([c1, c0])
 
 # pick x2 and x1 as the features, and class (1 or 0) as the binary response
-X = df[['x2', 'x1']]
+X = df[['x1', 'x2']]
 y = df['class']
 
 # Split data into training and test sets
@@ -115,8 +112,9 @@ x1_grid = np.linspace(min(df['x1']), max(df['x1']), grid_resolution)
 x2_grid = np.linspace(min(df['x2']), max(df['x2']), grid_resolution)
 ee, nn = np.meshgrid(x1_grid, x2_grid)
 
-# Flatten meshgrid to create two-column array of all coordinate pairs
+# Flatten meshgrid to create two-column array of all grid coordinate pairs
 prediction_grid = np.vstack([np.ravel(nn), np.ravel(ee)]).T
+prediction_grid = np.flip(prediction_grid, axis=1)
 
 # empty arrays to be populated in the loop for error vs. 1/k plot
 one_over_k = np.empty(0)
@@ -127,14 +125,13 @@ specificity_tst = np.empty(0)
 sensitivity_trn = np.empty(0)
 specificity_trn = np.empty(0)
 
-
 # loop to produce successive images over k range
 for k in range(k_max, k_min-1, -step):
 
     # Fit the training data
     clf = neighbors.KNeighborsClassifier(k)
     clf.fit(X_trn, y_trn)
-
+    
     # Pass the coordinate pairs to the classifier to return class predictions for each point
     decision_regions = clf.predict(prediction_grid)
 
@@ -147,7 +144,7 @@ for k in range(k_max, k_min-1, -step):
     
     X_tst_tp, X_tst_fn, X_tst_tn, X_tst_fp = \
     split_x_into_tp_fn_tn_fp(X_tst_1, X_tst_0, y_tst_1, y_tst_0, clf)
-
+    
     # count number of true positives, false positives, true negatives and false negatives
     tst_tp, tst_fn, tst_tn, tst_fp = len(X_tst_tp), len(X_tst_fn), len(X_tst_tn), len(X_tst_fp)
     trn_tp, trn_fn, trn_tn, trn_fp = len(X_trn_tp), len(X_trn_fn), len(X_trn_tn), len(X_trn_fp)
@@ -175,19 +172,20 @@ for k in range(k_max, k_min-1, -step):
     ax2 = plt.subplot2grid((2, 5), (0,3), colspan=2, rowspan=2)
     ax3 = plt.subplot2grid((2, 5), (0,2), colspan=1, rowspan=1)
     ax4 = plt.subplot2grid((2, 5), (1,2), colspan=1, rowspan=1)
-
+    
+    # left panel (training data)
     ax1.set_xlabel(r'$x_1$')
     ax1.set_ylabel(r'$x_2$')
     ax1.set_xlim([min(df['x1']), max(df['x1'])])
     ax1.set_ylim([min(df['x2']), max(df['x2'])])
-    #ax1.set_aspect(abs((max(df['x1'] - min(df['x1']))) / (max(df['x2'] - min(df['x2'])))))
 
+    # right panel (test data)
     ax2.set_xlabel(r'$x_1$')
     ax2.set_ylabel(r'$x_2$')
     ax2.set_xlim([min(df['x1']), max(df['x1'])])
     ax2.set_ylim([min(df['x2']), max(df['x2'])])
-    #ax2.set_aspect(abs((max(df['x1'] - min(df['x1']))) / (max(df['x2'] - min(df['x2'])))))
-
+    
+    # top-centre panel (error / accurary curve)
     ax3.set_xlabel(r'1/k')
     ax3.set_ylabel('error')
     ax3.set_xscale('log')
@@ -196,6 +194,7 @@ for k in range(k_max, k_min-1, -step):
     ax3.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
     ax3.set_title('Error rates vs. 1/k')
 
+    # bottom-centre panel (sensitivity / specificity plots)
     ax4.set_xlabel(r'1/k')
     ax4.set_ylabel('sensitivity / specificity')
     ax4.set_xscale('log')
@@ -205,8 +204,8 @@ for k in range(k_max, k_min-1, -step):
     ax4.set_title('Sens./Spec. vs. 1/k')
 
     # plot prediction regions
-    ax1.pcolor(ee, nn,  decision_regions, cmap=custom_colors)
-    ax2.pcolor(ee, nn,  decision_regions, cmap=custom_colors)
+    ax1.pcolor(ee, nn,  decision_regions, cmap=custom_colors, shading='auto' )
+    ax2.pcolor(ee, nn,  decision_regions, cmap=custom_colors, shading='auto' )
 
     # plot the training and test data scatter plots
     plot_scatter_points(ax1, X_trn_tp, X_trn_fn, X_trn_tn, X_trn_fp, dataset_label='training')
