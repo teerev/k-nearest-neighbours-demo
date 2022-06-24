@@ -12,7 +12,7 @@ To install the dependencies:
 pip install -r requirements.txt
 ````
 
-Most of the dependencies in requirements.txt are actually needed by Jupyter. The Python code in *knn.ipynb** can be copied into a .py file, and then you only need the following dependencies:
+Most of the dependencies in requirements.txt are actually needed by Jupyter. The Python code in *knn.ipynb* can be copied into a .py file, and then you only need the following dependencies:
 
 ````bash
 pip install pandas numpy matplotlib scikit-learn==0.24.02
